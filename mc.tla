@@ -1,5 +1,5 @@
 ---- MODULE MC ----
-EXTENDS 2pc_tla, TLC
+EXTENDS TreeTwoPhaseCommit, TLC
 
 CONSTANTS n1, n2, n3
 
@@ -10,4 +10,3 @@ const_InitChildren_fanout == (n1 :> {n2, n3} @@ n2 :> {} @@ n3 :> {})
 const_InitChildren_chain == (n1 :> {n2} @@ n2 :> {n3} @@ n3 :> {})
 
 =============================================================================
-
