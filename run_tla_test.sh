@@ -1,5 +1,5 @@
 #!/bin/bash
-# Script to run TLA+ model checking for 2pc_tla.tla
+# Script to run TLA+ model checking for TreeTwoPhaseCommit.tla
 # Requires Java 11+ and tla2tools.jar
 
 set -e
@@ -35,8 +35,8 @@ if [ -z "$JAVA_BIN" ]; then
 fi
 
 CONFIGS=(
-    "2pc_tla.cfg:Fan-out topology (n1 -> {n2,n3})"
-    "2pc_tla_chain.cfg:Chain topology (n1 -> n2 -> n3)"
+    "TreeTwoPhaseCommit.cfg:Fan-out topology (n1 -> {n2,n3})"
+    "TreeTwoPhaseCommit_chain.cfg:Chain topology (n1 -> n2 -> n3)"
 )
 
 FAILED=0
@@ -66,4 +66,3 @@ else
     echo "Some configurations failed."
     exit 1
 fi
-
