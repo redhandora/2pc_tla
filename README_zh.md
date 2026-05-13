@@ -10,10 +10,10 @@ OceanBase 的分布式事务采用树形两阶段提交(Tree-structured 2PC)协�
 
 | 文件 | 说明 |
 |---|---|
-| `2pc_tla.tla` | 核心 TLA+ 规约，定义协议的状态变量、所有 action 和安全性不变式 |
+| `TreeTwoPhaseCommit.tla` | 核心 TLA+ 规约，定义协议的状态变量、所有 action、安全性不变式、公平性与活性属性 |
 | `MC.tla` | 模型检验辅助模块，定义具体的节点常量和拓扑配置 |
-| `2pc_tla.cfg` | Fan-out 拓扑配置 (n1 -> {n2, n3}) |
-| `2pc_tla_chain.cfg` | Chain 拓扑配置 (n1 -> n2 -> n3) |
+| `TreeTwoPhaseCommit.cfg` | Fan-out 拓扑配置 (n1 -> {n2, n3}) |
+| `TreeTwoPhaseCommit_chain.cfg` | Chain 拓扑配置 (n1 -> n2 -> n3) |
 | `run_tla_test.sh` | 自动化测试脚本，依次运行所有拓扑的模型检验 |
 | `TODO.md` | Review 记录：规约与设计文档的对比、发现的问题及修复状态 |
 
@@ -100,6 +100,18 @@ Consistency == \A n1, n2 \in Node : ~(rmState[n1] = "COMMIT" /\ rmState[n2] = "A
 
 此外，TLC 默认检查 **Deadlock Freedom**（协议不会卡死）。
 
+### 活性属性 / Liveness
+
+规约为所有协议推进类动作附加了 `WF_Vars`（弱公平）；`InternalAbort` 与 `AddIntermediateParticipant` 用来建模节点失败和外部成员变更，故意不加公平性。
+
+**Termination**：Root 最终一定能完成协议。
+
+```tla
+Termination == <>(rmState[Root] = "TOMBSTONE")
+```
+
+到达 TOMBSTONE 必经 `ForgetCtx`，而 `ForgetCtx` 要求 `AllAcked`，因此该属性同时蕴含「Root 的 active 子树也都 make progress」。注意：TLC 做 liveness 检查显著比纯 safety 慢。
+
 ## 运行模型检验
 
 ### 前置条件
@@ -114,7 +126,7 @@ Consistency == \A n1, n2 \in Node : ~(rmState[n1] = "COMMIT" /\ rmState[n2] = "A
 JAVA_HOME=/path/to/jdk bash run_tla_test.sh
 
 # 方式二：手动运行单个配置
-java -cp /path/to/tla2tools.jar tlc2.TLC -config 2pc_tla.cfg MC.tla -workers auto
+java -cp /path/to/tla2tools.jar tlc2.TLC -config TreeTwoPhaseCommit.cfg MC.tla -workers auto
 ```
 
 ### 验证结果（3 节点穷举）
@@ -128,4 +140,3 @@ java -cp /path/to/tla2tools.jar tlc2.TLC -config 2pc_tla.cfg MC.tla -workers aut
 
 - `Oceanbase 单日志流两阶段提交设计文档.md` — 协议设计文档
 - `TODO.md` — 规约 review 详细记录
-
