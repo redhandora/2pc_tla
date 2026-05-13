@@ -1,4 +1,4 @@
------------------------------ MODULE 2pc_tla -----------------------------
+----------------------------- MODULE TreeTwoPhaseCommit -----------------------------
 EXTENDS Naturals, Sequences, FiniteSets, TLC
 
 (*
@@ -356,7 +356,31 @@ Next ==
     \* ── Dynamic Membership ──
     \/ \E n, newChild \in Node : AddIntermediateParticipant(n, newChild)
 
-Spec == Init /\ [][Next]_Vars
+(***************************************************************************)
+(* Fairness                                                                *)
+(***************************************************************************)
+
+\* Weak fairness on protocol-progress actions. InternalAbort and
+\* AddIntermediateParticipant model node failure / external membership change
+\* and intentionally have NO fairness — forcing them would yield absurd
+\* behaviors such as "every node aborts immediately".
+Fairness ==
+    /\ WF_Vars(RootStartToCommit)
+    /\ \A n \in Node :
+        /\ WF_Vars(Handle2pcPrepareRequest(n))
+        /\ WF_Vars(Handle2pcDuplicatePrepareRequest(n))
+        /\ WF_Vars(HandleOrphan2pcPrepareRequest(n))
+        /\ WF_Vars(Handle2pcPrepareResponse(n))
+        /\ WF_Vars(Handle2pcCommitDecided(n))
+        /\ WF_Vars(Handle2pcAbortDecided(n))
+        /\ WF_Vars(Handle2pcCommitRequest(n))
+        /\ WF_Vars(Handle2pcAbortRequest(n))
+        /\ WF_Vars(HandleOrphan2pcCommitRequest(n))
+        /\ WF_Vars(HandleOrphan2pcAbortRequest(n))
+        /\ WF_Vars(Handle2pcAckResponse(n))
+        /\ WF_Vars(ForgetCtx(n))
+
+Spec == Init /\ [][Next]_Vars /\ Fairness
 
 ----
 
@@ -370,5 +394,14 @@ Consistency ==
     \A n1, n2 \in Node :
         ~(rmState[n1] = "COMMIT" /\ rmState[n2] = "ABORT")
 
-=============================================================================
+(***************************************************************************)
+(* Liveness Properties                                                     *)
+(***************************************************************************)
 
+\* Termination: the Root eventually completes the protocol — i.e. reaches
+\* TOMBSTONE through either the commit or the abort path. Reaching TOMBSTONE
+\* requires AllAcked over Root's children, so this implicitly asserts that
+\* the active sub-tree of Root also makes progress.
+Termination == <>(rmState[Root] = "TOMBSTONE")
+
+=============================================================================
