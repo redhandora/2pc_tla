@@ -10,10 +10,10 @@ OceanBase distributed transactions use a tree-structured 2PC protocol. Each part
 
 | File | Description |
 |---|---|
-| `2pc_tla.tla` | Core TLA+ specification, defining protocol state variables, all actions, and safety invariants |
+| `TreeTwoPhaseCommit.tla` | Core TLA+ specification, defining protocol state variables, all actions, safety invariants, fairness, and liveness properties |
 | `MC.tla` | Model checking helper module, defining concrete node constants and topology configurations |
-| `2pc_tla.cfg` | Fan-out topology configuration (n1 -> {n2, n3}) |
-| `2pc_tla_chain.cfg` | Chain topology configuration (n1 -> n2 -> n3) |
+| `TreeTwoPhaseCommit.cfg` | Fan-out topology configuration (n1 -> {n2, n3}) |
+| `TreeTwoPhaseCommit_chain.cfg` | Chain topology configuration (n1 -> n2 -> n3) |
 | `run_tla_test.sh` | Automated test script that runs model checking across all topologies |
 | `TODO.md` | Review notes: comparison between the spec and design doc, discovered issues, and fix status |
 
@@ -100,6 +100,18 @@ Consistency == \A n1, n2 \in Node : ~(rmState[n1] = "COMMIT" /\ rmState[n2] = "A
 
 In addition, TLC checks **Deadlock Freedom** by default (the protocol does not deadlock).
 
+### Liveness Property
+
+The spec attaches `WF_Vars` (weak fairness) to every protocol-progress action, while leaving `InternalAbort` and `AddIntermediateParticipant` deliberately unfair (they model node failure and external membership change).
+
+**Termination**: the Root eventually completes the protocol.
+
+```tla
+Termination == <>(rmState[Root] = "TOMBSTONE")
+```
+
+Reaching TOMBSTONE goes through `ForgetCtx`, which requires `AllAcked` over Root's children, so this implicitly asserts that Root's active sub-tree also makes progress. Note that liveness checking with TLC is significantly slower than safety alone.
+
 ## Run Model Checking
 
 ### Prerequisites
@@ -114,7 +126,7 @@ In addition, TLC checks **Deadlock Freedom** by default (the protocol does not d
 JAVA_HOME=/path/to/jdk bash run_tla_test.sh
 
 # Option 2: run a single configuration manually
-java -cp /path/to/tla2tools.jar tlc2.TLC -config 2pc_tla.cfg MC.tla -workers auto
+java -cp /path/to/tla2tools.jar tlc2.TLC -config TreeTwoPhaseCommit.cfg MC.tla -workers auto
 ```
 
 ### Verification Results (Exhaustive 3-Node Search)
@@ -128,4 +140,3 @@ java -cp /path/to/tla2tools.jar tlc2.TLC -config 2pc_tla.cfg MC.tla -workers aut
 
 - `Oceanbase 单日志流两阶段提交设计文档.md` - Protocol design document
 - `TODO.md` - Detailed spec review notes
-
